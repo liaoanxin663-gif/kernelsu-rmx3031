@@ -1,0 +1,115 @@
+name: Build KernelSU for realme GT Neo (RMX3031)
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_repo:
+        description: 'Kernel source repository (owner/repo)'
+        required: true
+        default: 'ManshuTyagi/kernel_realme_RMX3031'
+      kernel_branch:
+        description: 'Kernel source branch'
+        required: true
+        default: 'R'
+      defconfig:
+        description: 'Defconfig name'
+        required: true
+        default: 'RMX3031_defconfig'
+      ksu_version:
+        description: 'KernelSU-Next branch/tag to use'
+        required: true
+        default: 'legacy'
+      ksu_method:
+        description: 'Integration method (kprobe or manual)'
+        required: true
+        default: 'kprobe'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ARCH: arm64
+      CROSS_COMPILE: aarch64-linux-gnu-
+      CC: aarch64-linux-gnu-gcc
+      OUT_DIR: ${{ github.workspace }}/kernel/out
+
+    steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            git build-essential bc bison flex \
+            libssl-dev libncurses-dev libelf-dev \
+            device-tree-compiler \
+            gcc-aarch64-linux-gnu \
+            python2 python3 python-is-python3 \
+            zip unzip cpio
+
+      - name: Clone kernel source
+        run: |
+          git clone --depth=1 -b ${{ github.event.inputs.kernel_branch }} \
+            https://github.com/${{ github.event.inputs.kernel_repo }}.git kernel
+
+      - name: Integrate KernelSU-Next
+        run: |
+          cd kernel
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | \
+            bash -s ${{ github.event.inputs.ksu_version }}
+
+      - name: Enable KernelSU in defconfig
+        run: |
+          cd kernel
+          DEFCONFIG=${{ github.event.inputs.defconfig }}
+          CONFIG_PATH="arch/arm64/configs/${DEFCONFIG}"
+          echo "" >> "${CONFIG_PATH}"
+          echo "# KernelSU-Next" >> "${CONFIG_PATH}"
+          echo "CONFIG_KSU=y" >> "${CONFIG_PATH}"
+          if [ "${{ github.event.inputs.ksu_method }}" = "kprobe" ]; then
+            echo "CONFIG_KSU_KPROBE_HOOKS=y" >> "${CONFIG_PATH}"
+            echo "CONFIG_KPROBES=y" >> "${CONFIG_PATH}"
+            echo "CONFIG_KPROBE_EVENTS=y" >> "${CONFIG_PATH}"
+            echo "CONFIG_MODULES=y" >> "${CONFIG_PATH}"
+          fi
+
+      - name: Apply manual hook patches (optional)
+        if: github.event.inputs.ksu_method == 'manual'
+        run: |
+          cd kernel
+          for p in ../patches/*.patch; do
+            [ -e "$p" ] || continue
+            echo "Applying $p"
+            git apply "$p" || { echo "Failed to apply $p"; exit 1; }
+          done
+
+      - name: Build kernel
+        run: |
+          cd kernel
+          make O=out ${{ github.event.inputs.defconfig }}
+          make O=out -j$(nproc)
+
+      - name: Check build outputs
+        run: |
+          ls -lh kernel/out/arch/arm64/boot/
+
+      - name: Prepare AnyKernel3 package
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3
+          cp anykernel.sh ak3/
+          if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz-dtb ak3/
+          else
+            cp kernel/out/arch/arm64/boot/Image.gz ak3/ 2>/dev/null || true
+            cp kernel/out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
+          fi
+          cd ak3
+          rm -rf .git README.md
+          zip -r9 ../kernelsu-rmx3031.zip .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernelsu-rmx3031-${{ github.run_number }}
+          path: kernelsu-rmx3031.zip
