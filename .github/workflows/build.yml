@@ -90,12 +90,16 @@ jobs:
         run: |
           export PATH="${{ github.workspace }}/gcc/bin:${PATH}"
           cd kernel
+          # Old vendor code has many warnings promoted to errors by the kernel Makefile.
+          # Strip -Werror from the tree and pass -Wno-error to be safe.
+          find . -type f \( -name Makefile -o -name '*.mk' \) -exec \
+            sed -i 's/-Werror[a-z0-9=-]*//g' {} +
           make O=out ARCH=arm64 \
             CROSS_COMPILE=aarch64-linux-android- \
             ${{ github.event.inputs.defconfig }}
           make O=out ARCH=arm64 \
             CROSS_COMPILE=aarch64-linux-android- \
-            KCFLAGS="-Wno-error=strict-prototypes" \
+            KCFLAGS="-Wno-error -Wno-error=strict-prototypes -Wno-error=format" \
             -j$(nproc)
 
       - name: Check build outputs
