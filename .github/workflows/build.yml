@@ -106,14 +106,14 @@ jobs:
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-android- \
             AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            LD=ld.lld \
+            LD=aarch64-linux-android-ld.bfd \
             ${{ github.event.inputs.defconfig }}
           make O=out ARCH=arm64 \
             CC=clang HOSTCC=gcc \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-android- \
             AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            LD=ld.lld \
+            LD=aarch64-linux-android-ld.bfd \
             KCFLAGS="-Wno-error -Wno-strict-prototypes -Wno-void-pointer-to-int-cast -Wno-deprecated-declarations" \
             -j$(nproc)
 
