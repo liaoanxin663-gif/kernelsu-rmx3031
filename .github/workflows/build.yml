@@ -97,6 +97,10 @@ jobs:
         run: |
           export PATH="${{ github.workspace }}/clang/clang-r416183b/bin:${{ github.workspace }}/gcc/bin:${PATH}"
           cd kernel
+          # Older vendor code triggers new-clang warnings that are promoted to errors.
+          # Strip -Werror globally and disable the noisy diagnostics.
+          find . -type f \( -name Makefile -o -name '*.mk' \) -exec \
+            sed -i 's/-Werror[a-z0-9=-]*//g' {} +
           make O=out ARCH=arm64 \
             CC=clang HOSTCC=gcc \
             CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -110,7 +114,7 @@ jobs:
             CROSS_COMPILE=aarch64-linux-android- \
             AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
             LD=ld.lld \
-            KCFLAGS="-Wno-error" \
+            KCFLAGS="-Wno-error -Wno-strict-prototypes -Wno-void-pointer-to-int-cast -Wno-deprecated-declarations" \
             -j$(nproc)
 
       - name: Check build outputs
