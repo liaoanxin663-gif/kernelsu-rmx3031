@@ -29,8 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ARCH: arm64
-      CROSS_COMPILE: aarch64-linux-gnu-
-      CC: aarch64-linux-gnu-gcc
       OUT_DIR: ${{ github.workspace }}/kernel/out
 
     steps:
@@ -44,9 +42,20 @@ jobs:
             git build-essential bc bison flex \
             libssl-dev libncurses-dev libelf-dev \
             device-tree-compiler \
-            gcc-aarch64-linux-gnu \
             python3 python-is-python3 \
             zip unzip cpio
+
+      - name: Clone Android Clang toolchain
+        run: |
+          git clone --depth=1 -b ruby --filter=blob:none --sparse \
+            https://github.com/AOSPA/android_prebuilts_clang_host_linux-x86.git clang
+          cd clang
+          git sparse-checkout set clang-r416183
+
+      - name: Clone Android GCC 4.9 toolchain
+        run: |
+          git clone --depth=1 -b lineage-19.1 \
+            https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git gcc
 
       - name: Clone kernel source
         run: |
@@ -86,9 +95,23 @@ jobs:
 
       - name: Build kernel
         run: |
+          export PATH="${{ github.workspace }}/clang/clang-r416183/bin:${{ github.workspace }}/gcc/bin:${PATH}"
           cd kernel
-          make O=out ${{ github.event.inputs.defconfig }}
-          make O=out KCFLAGS="-Wno-strict-prototypes -Wno-array-compare -Wno-deprecated-declarations -Wno-error" -j$(nproc)
+          make O=out ARCH=arm64 \
+            CC=clang HOSTCC=gcc \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-android- \
+            AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
+            LD=ld.lld \
+            ${{ github.event.inputs.defconfig }}
+          make O=out ARCH=arm64 \
+            CC=clang HOSTCC=gcc \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-android- \
+            AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
+            LD=ld.lld \
+            KCFLAGS="-Wno-error" \
+            -j$(nproc)
 
       - name: Check build outputs
         run: |
