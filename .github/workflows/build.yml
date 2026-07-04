@@ -50,7 +50,7 @@ jobs:
           git clone --depth=1 -b ruby --filter=blob:none --sparse \
             https://github.com/AOSPA/android_prebuilts_clang_host_linux-x86.git clang
           cd clang
-          git sparse-checkout set clang-r416183
+          git sparse-checkout set clang-r416183bb
 
       - name: Clone Android GCC 4.9 toolchain
         run: |
@@ -95,7 +95,7 @@ jobs:
 
       - name: Build kernel
         run: |
-          export PATH="${{ github.workspace }}/clang/clang-r416183/bin:${{ github.workspace }}/gcc/bin:${PATH}"
+          export PATH="${{ github.workspace }}/clang/clang-r416183b/bin:${{ github.workspace }}/gcc/bin:${PATH}"
           cd kernel
           make O=out ARCH=arm64 \
             CC=clang HOSTCC=gcc \
