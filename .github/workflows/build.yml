@@ -95,6 +95,7 @@ jobs:
             ${{ github.event.inputs.defconfig }}
           make O=out ARCH=arm64 \
             CROSS_COMPILE=aarch64-linux-android- \
+            KCFLAGS="-Wno-error=strict-prototypes" \
             -j$(nproc)
 
       - name: Check build outputs
