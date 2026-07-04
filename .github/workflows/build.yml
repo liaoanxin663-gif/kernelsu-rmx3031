@@ -88,7 +88,7 @@ jobs:
         run: |
           cd kernel
           make O=out ${{ github.event.inputs.defconfig }}
-          make O=out -j$(nproc)
+          make O=out KCFLAGS="-Wno-error=strict-prototypes" -j$(nproc)
 
       - name: Check build outputs
         run: |
