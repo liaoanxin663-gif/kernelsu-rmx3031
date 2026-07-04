@@ -45,13 +45,6 @@ jobs:
             python3 python-is-python3 \
             zip unzip cpio
 
-      - name: Clone Android Clang toolchain
-        run: |
-          git clone --depth=1 -b ruby --filter=blob:none --sparse \
-            https://github.com/AOSPA/android_prebuilts_clang_host_linux-x86.git clang
-          cd clang
-          git sparse-checkout set clang-r416183b
-
       - name: Clone Android GCC 4.9 toolchain
         run: |
           git clone --depth=1 -b lineage-19.1 \
@@ -95,26 +88,13 @@ jobs:
 
       - name: Build kernel
         run: |
-          export PATH="${{ github.workspace }}/clang/clang-r416183b/bin:${{ github.workspace }}/gcc/bin:${PATH}"
+          export PATH="${{ github.workspace }}/gcc/bin:${PATH}"
           cd kernel
-          # Older vendor code triggers new-clang warnings that are promoted to errors.
-          # Strip -Werror globally and disable the noisy diagnostics.
-          find . -type f \( -name Makefile -o -name '*.mk' \) -exec \
-            sed -i 's/-Werror[a-z0-9=-]*//g' {} +
           make O=out ARCH=arm64 \
-            CC=clang HOSTCC=gcc \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-android- \
-            AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            LD=aarch64-linux-android-ld.bfd \
             ${{ github.event.inputs.defconfig }}
           make O=out ARCH=arm64 \
-            CC=clang HOSTCC=gcc \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-android- \
-            AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            LD=aarch64-linux-android-ld.bfd \
-            KCFLAGS="-Wno-error -Wno-strict-prototypes -Wno-void-pointer-to-int-cast -Wno-deprecated-declarations" \
             -j$(nproc)
 
       - name: Check build outputs
